@@ -2,14 +2,13 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Asset Scanner Pro</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        /* Giao diện chuẩn Dark Mode điện thoại chuyên nghiệp */
         body {
             margin: 0; padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -35,18 +34,13 @@
             padding: 14px 40px; font-size: 16px; font-weight: 600; border-radius: 30px; cursor: pointer;
             box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
         }
-        .btn-gradient:disabled {
-            background: #2a2c3d; color: #6e7191; box-shadow: none; cursor: not-allowed;
-        }
+        .btn-gradient:disabled { background: #2a2c3d; color: #6e7191; box-shadow: none; cursor: not-allowed; }
         .search-container { display: flex; gap: 10px; margin-bottom: 20px; }
         .search-input {
             flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 14px; padding: 14px 16px; color: white; font-size: 15px; outline: none;
         }
-        .btn-search {
-            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white; width: 50px; border-radius: 14px; cursor: pointer;
-        }
+        .btn-search { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: white; width: 50px; border-radius: 14px; cursor: pointer; }
         #reader { width: 100%; background: #000; border-radius: 16px; display: none; overflow: hidden; }
         .status-msg { color: #8a8d9f; font-size: 13px; text-align: center; margin-top: 5px; }
     </style>
@@ -56,7 +50,7 @@
 <div class="app-container">
     <div class="header">
         <div>
-            <h1>Asset Scanner_NQUAN</h1>
+            <h1>Asset Scanner MQ2</h1>
             <div class="status-msg" id="loadStatus">⏳ Hệ thống đang nạp tệp Excel...</div>
         </div>
     </div>
@@ -64,7 +58,7 @@
     <div class="camera-box">
         <div id="scanner-ui">
             <div class="camera-icon"><i class="fa-solid fa-camera"></i></div>
-            <div class="camera-hint">Nhấn để kích hoạt ống kính và bắt đầu quét mã vạch tài sản cơ quan</div>
+            <div class="camera-hint">Nhấn để kích hoạt ống kính và bắt đầu quét mã vạch tài sản</div>
             <button class="btn-gradient" id="btnStart" onclick="startScanning()" disabled>Đang xử lý dữ liệu...</button>
         </div>
         <div id="reader"></div>
@@ -78,120 +72,102 @@
 
 <script>
     let html5QrcodeScanner = null;
-    let excelDatabase = []; // Kho dữ liệu tổng sau khi gộp các sheet
+    let excelDatabase = [];
 
-    // TỰ ĐỘNG ĐỌC FILE EXCEL NGAY KHI VỪA KHỞI ĐỘNG TRANG WEB
+    // ĐỌC EXCEL KHI MỞ WEB
     window.onload = function() {
-        // Gọi file database.xlsx từ thư mục GitHub
         fetch('database.xlsx')
-            .then(res => {
-                if (!res.ok) throw new Error("Không thấy tệp database.xlsx");
-                return res.arrayBuffer();
-            })
+            .then(res => { if (!res.ok) throw new Error(); return res.arrayBuffer(); })
             .then(ab => {
                 const wb = XLSX.read(new Uint8Array(ab), { type: 'array' });
-                
-                // Duyệt qua toàn bộ danh sách Sheet có trong file Excel (Chinh cho 3 phong, CCDC...)
                 wb.SheetNames.forEach(sheetName => {
                     const worksheet = wb.Sheets[sheetName];
                     const rowData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                    
-                    let headerRow = [];
-                    let dataStartIdx = 0;
-                    
-                    // Tìm kiếm hàng chứa tiêu đề cột dựa trên từ khóa cốt lõi
+                    let headerRow = []; let dataStartIdx = 0;
                     for(let i = 0; i < rowData.length; i++) {
                         if(rowData[i] && (rowData[i].includes("Số hiệu") || rowData[i].includes("Ký hiệu"))) {
-                            headerRow = rowData[i];
-                            dataStartIdx = i + 1;
-                            break;
+                            headerRow = rowData[i]; dataStartIdx = i + 1; break;
                         }
                     }
-
-                    // Nếu file không theo chuẩn, lấy dòng đầu tiên có dữ liệu làm gốc tiêu đề
-                    if(headerRow.length === 0 && rowData.length > 0) {
-                        headerRow = rowData[0];
-                        dataStartIdx = 1;
-                    }
-
-                    // Đọc và chuẩn hóa dữ liệu từng dòng đưa vào mảng
+                    if(headerRow.length === 0 && rowData.length > 0) { headerRow = rowData[0]; dataStartIdx = 1; }
                     for(let j = dataStartIdx; j < rowData.length; j++) {
-                        let row = rowData[j];
-                        if(!row || row.length === 0) continue;
-
+                        let row = rowData[j]; if(!row || row.length === 0) continue;
                         let record = { _sheetName: sheetName };
-                        headerRow.forEach((header, colIdx) => {
-                            if(header) {
-                                record[String(header).trim()] = row[colIdx];
-                            }
-                        });
+                        headerRow.forEach((header, colIdx) => { if(header) record[String(header).trim()] = row[colIdx]; });
                         excelDatabase.push(record);
                     }
                 });
-
-                // Cập nhật trạng thái và mở khóa nút bấm camera
                 document.getElementById('loadStatus').innerText = `✅ Đã nhận thành công ${excelDatabase.length} dòng dữ liệu!`;
                 document.getElementById('btnStart').innerText = "Mở Camera Quét Mã";
                 document.getElementById('btnStart').disabled = false;
             })
             .catch(err => {
-                console.error(err);
                 document.getElementById('loadStatus').style.color = "#e94560";
-                document.getElementById('loadStatus').innerText = "❌ Lỗi: Hãy kiểm tra xem file đã đặt đúng tên 'database.xlsx' chưa!";
+                document.getElementById('loadStatus').innerText = "❌ Lỗi: Chưa tìm thấy file 'database.xlsx'!";
             });
     };
 
-    // HÀM KÍCH HOẠT CAMERA QUÉT MÃ
+    // HÀM MỞ CAMERA - ĐÃ TỐI ƯU CƠ CHẾ NẮT BẮT CHO SAFARI IPHONE
     function startScanning() {
         const scannerUi = document.getElementById('scanner-ui');
         const readerDiv = document.getElementById('reader');
 
-        // Tạo mới trình quét mã vạch
+        if (html5QrcodeScanner) { stopScanning(); }
+
         html5QrcodeScanner = new Html5Qrcode("reader");
         
-        html5QrcodeScanner.start(
-            { facingMode: { exact: "environment" } }, // ÉP ĐIỆN THOẠI CHỌN ĐÚNG CAMERA SAU CHÍNH
-            { 
-                fps: 15, // Tăng tốc độ quét bắt khung hình
-                qrbox: function(viewfinderWidth, viewfinderHeight) {
-                    // Tự động căn chỉnh khung quét hình vuông vừa vặn mọi màn hình điện thoại
-                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    const edgeSize = Math.floor(minEdge * 0.7);
-                    return { width: edgeSize, height: edgeSize };
-                }
-            },
+        // CẤU HÌNH LINH HOẠT CHO SAFARI: Không ép buộc cứng camera để tránh Safari tự động khóa
+        const config = { 
+            fps: 10, 
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                const edgeSize = Math.floor(minEdge * 0.75);
+                return { width: edgeSize, height: edgeSize };
+            }
+        };
+
+        // Ưu tiên mở camera sau bằng từ khóa thân thiện với IOS
+        html5QrcodeScanner.start({ facingMode: "environment" }, config,
             (decodedText) => {
-                // Khi nhận diện thành công mã vạch, tự động tắt cam để tiết kiệm pin và chuyển sang hiển thị kết quả
                 stopScanning();
                 processAssetSearch(decodedText);
             },
-            (errorMessage) => { /* Bỏ qua log quét trượt liên tục để tránh đơ bộ nhớ máy */ }
+            (err) => {}
         )
         .then(() => {
             scannerUi.style.display = 'none';
             readerDiv.style.display = 'block';
+            
+            // Sửa lỗi Safari tự đóng luồng video khi chạy ngầm bằng cách ép thẻ video chạy inline
+            const videoElement = readerDiv.querySelector('video');
+            if (videoElement) {
+                videoElement.setAttribute('playsinline', 'true');
+                videoElement.setAttribute('webkit-playsinline', 'true');
+                videoElement.play().catch(e => console.log("Ép chạy video"));
+            }
         })
         .catch(err => {
-            console.error(err);
-            // Phương án dự phòng nếu điện thoại kén camera sau ép buộc hoặc chưa bật quyền
-            html5QrcodeScanner.start(
-                { facingMode: "environment" }, // Thử lại với chế độ tự lựa chọn camera sau mặc định
-                { fps: 15, qrbox: { width: 250, height: 250 } },
-                (decodedText) => {
-                    stopScanning();
-                    processAssetSearch(decodedText);
-                },
-                (err) => {}
-            ).then(() => {
-                scannerUi.style.display = 'none';
-                readerDiv.style.display = 'block';
-            }).catch(e => {
-                alert("Lỗi phần cứng camera hoặc bạn chưa cấp quyền truy cập Máy ảnh cho trình duyệt web này!");
-            });
+            // Nếu vẫn lỗi, thử phương án quét sâu tìm trực tiếp ID phần cứng camera sau
+            Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length > 0) {
+                    // Ưu tiên tìm camera sau trong danh sách phần cứng của iPhone
+                    let backCamera = devices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('sau'));
+                    let cameraId = backCamera ? backCamera.id : devices[0].id;
+                    
+                    html5QrcodeScanner.start(cameraId, config,
+                        (decodedText) => { stopScanning(); processAssetSearch(decodedText); },
+                        (err) => {}
+                    ).then(() => {
+                        scannerUi.style.display = 'none';
+                        readerDiv.style.display = 'block';
+                    }).catch(e => alert("Safari yêu cầu tải lại trang hoặc kiểm tra ứng dụng camera khác đang bật ngầm!"));
+                } else {
+                    alert("Không tìm thấy thiết bị camera hợp lệ!");
+                }
+            }).catch(e => alert("Lỗi phân quyền hệ thống camera!"));
         });
     }
 
-    // HÀM TẮT CAMERA
     function stopScanning() {
         if (html5QrcodeScanner) {
             html5QrcodeScanner.stop().then(() => {
@@ -201,31 +177,20 @@
         }
     }
 
-    // KIỂM TRA MÃ NHẬP BẰNG TAY
     function checkManualAsset() {
         const code = document.getElementById('manualInput').value.trim();
-        if(code) {
-            processAssetSearch(code);
-        } else {
-            alert('Vui lòng nhập mã tài sản cần tìm!');
-        }
+        if(code) processAssetSearch(code);
+        else alert('Vui lòng nhập mã tài sản cần tìm!');
     }
 
-    // HÀM TRA CỨU DỮ LIỆU ĐỐI CHIẾU THÔNG TIN
     function processAssetSearch(maCanTim) {
-        if(excelDatabase.length === 0) {
-            alert("Hệ thống đang nạp dữ liệu Excel, vui lòng đợi vài giây!");
-            return;
-        }
-
-        // Dò mã tài sản trong toàn bộ các cột định danh của cả 2 loại sheet
+        if(excelDatabase.length === 0) return;
         const found = excelDatabase.find(item => {
             let maTrongFile = item["Số hiệu"] || item["Ký hiệu"] || "";
             return String(maTrongFile).trim() === String(maCanTim).trim();
         });
 
         if (found) {
-            // Lấy linh hoạt dữ liệu tùy thuộc vào tiêu đề từng dòng của sheet Chỉnh cho 3 phòng hay sheet CCDC
             let tenMay = found["Tên tài sản"] || found["TÊN CCDC"] || "Không rõ tên";
             let phongBan = found["Phòng"] || "---";
             let nguoiPhuTrach = found["Người QL"] || found["Người quản lý"] || "---";
