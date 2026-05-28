@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
+        /* Giao diện chuẩn Dark Mode điện thoại chuyên nghiệp */
         body {
             margin: 0; padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -24,14 +25,18 @@
         }
         .camera-box {
             background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 24px; padding: 40px 20px; text-align: center; margin-bottom: 20px;
-            min-height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;
+            border-radius: 24px; padding: 30px 15px; text-align: center; margin-bottom: 20px;
+            min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;
         }
         .camera-icon { font-size: 48px; color: #8a8d9f; margin-bottom: 15px; }
-        .camera-hint { color: #8a8d9f; font-size: 14px; margin-bottom: 20px; }
+        .camera-hint { color: #8a8d9f; font-size: 14px; margin-bottom: 20px; padding: 0 10px; }
         .btn-gradient {
             background: linear-gradient(135deg, #6366f1 0%, #d946ef 100%); border: none; color: white;
-            padding: 12px 35px; font-size: 16px; font-weight: 600; border-radius: 30px; cursor: pointer;
+            padding: 14px 40px; font-size: 16px; font-weight: 600; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        .btn-gradient:disabled {
+            background: #2a2c3d; color: #6e7191; box-shadow: none; cursor: not-allowed;
         }
         .search-container { display: flex; gap: 10px; margin-bottom: 20px; }
         .search-input {
@@ -51,68 +56,70 @@
 <div class="app-container">
     <div class="header">
         <div>
-            <h1>Asset Scanner Pro_MQUAN</h1>
-            <div class="status-msg" id="loadStatus">⏳ Đang tải dữ liệu Excel...</div>
+            <h1>Asset Scanner_NQUAN</h1>
+            <div class="status-msg" id="loadStatus">⏳ Hệ thống đang nạp tệp Excel...</div>
         </div>
     </div>
 
     <div class="camera-box">
         <div id="scanner-ui">
-            <div class="camera-icon">📷</div>
-            <div class="camera-hint">Nhấn để mở camera và bắt đầu quét mã vạch tài sản</div>
-            <button class="btn-gradient" id="btnStart" onclick="startScanning()" disabled>Vui lòng đợi tải file...</button>
+            <div class="camera-icon"><i class="fa-solid fa-camera"></i></div>
+            <div class="camera-hint">Nhấn để kích hoạt ống kính và bắt đầu quét mã vạch tài sản cơ quan</div>
+            <button class="btn-gradient" id="btnStart" onclick="startScanning()" disabled>Đang xử lý dữ liệu...</button>
         </div>
         <div id="reader"></div>
     </div>
 
     <div class="search-container">
-        <input type="text" class="search-input" id="manualInput" placeholder="Hoặc nhập mã tài sản bằng tay...">
+        <input type="text" class="search-input" id="manualInput" placeholder="Hoặc gõ mã tài sản cần tìm vào đây...">
         <button class="btn-search" onclick="checkManualAsset()"><i class="fa-solid fa-magnifying-glass"></i></button>
     </div>
 </div>
 
 <script>
-    let html5QrcodeScanner;
-    let excelDatabase = []; // Nơi gom toàn bộ dữ liệu Excel sau khi đọc
+    let html5QrcodeScanner = null;
+    let excelDatabase = []; // Kho dữ liệu tổng sau khi gộp các sheet
 
-    // TỰ ĐỘNG ĐỌC FILE EXCEL ĐÃ UP LÊN GITHUB KHI TRANG WEB VỪA MỞ
+    // TỰ ĐỘNG ĐỌC FILE EXCEL NGAY KHI VỪA KHỞI ĐỘNG TRANG WEB
     window.onload = function() {
-        // Đọc file dữ liệu database.xlsx nằm cùng thư mục
+        // Gọi file database.xlsx từ thư mục GitHub
         fetch('database.xlsx')
-            .then(res => res.arrayBuffer())
+            .then(res => {
+                if (!res.ok) throw new Error("Không thấy tệp database.xlsx");
+                return res.arrayBuffer();
+            })
             .then(ab => {
                 const wb = XLSX.read(new Uint8Array(ab), { type: 'array' });
                 
-                // Quét qua tất cả các Sheet có trong file Excel (Gồm Chinh cho 3 phong, CCDC...)
+                // Duyệt qua toàn bộ danh sách Sheet có trong file Excel (Chinh cho 3 phong, CCDC...)
                 wb.SheetNames.forEach(sheetName => {
                     const worksheet = wb.Sheets[sheetName];
-                    // Chuyển sheet thành mảng dữ liệu
                     const rowData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                     
-                    // Tìm hàng tiêu đề để biết vị trí các cột
                     let headerRow = [];
                     let dataStartIdx = 0;
-                    for(let i=0; i<rowData.length; i++) {
-                        if(rowData[i].includes("Số hiệu") || rowData[i].includes("Ký hiệu")) {
+                    
+                    // Tìm kiếm hàng chứa tiêu đề cột dựa trên từ khóa cốt lõi
+                    for(let i = 0; i < rowData.length; i++) {
+                        if(rowData[i] && (rowData[i].includes("Số hiệu") || rowData[i].includes("Ký hiệu"))) {
                             headerRow = rowData[i];
                             dataStartIdx = i + 1;
                             break;
                         }
                     }
 
-                    // Nếu không tìm thấy cấu trúc chuẩn, lấy tạm hàng đầu tiên có dữ liệu làm tiêu đề
+                    // Nếu file không theo chuẩn, lấy dòng đầu tiên có dữ liệu làm gốc tiêu đề
                     if(headerRow.length === 0 && rowData.length > 0) {
                         headerRow = rowData[0];
                         dataStartIdx = 1;
                     }
 
-                    // Đẩy dữ liệu vào kho lưu trữ chung
+                    // Đọc và chuẩn hóa dữ liệu từng dòng đưa vào mảng
                     for(let j = dataStartIdx; j < rowData.length; j++) {
                         let row = rowData[j];
                         if(!row || row.length === 0) continue;
 
-                        // Tạo object chuẩn hóa thông tin từng dòng
-                        let record = { _sheet: sheetName };
+                        let record = { _sheetName: sheetName };
                         headerRow.forEach((header, colIdx) => {
                             if(header) {
                                 record[String(header).trim()] = row[colIdx];
@@ -122,75 +129,112 @@
                     }
                 });
 
-                document.getElementById('loadStatus').innerText = `✅ Đã nhận ${excelDatabase.length} dòng dữ liệu!`;
-                document.getElementById('btnStart').innerText = "Mở Camera";
+                // Cập nhật trạng thái và mở khóa nút bấm camera
+                document.getElementById('loadStatus').innerText = `✅ Đã nhận thành công ${excelDatabase.length} dòng dữ liệu!`;
+                document.getElementById('btnStart').innerText = "Mở Camera Quét Mã";
                 document.getElementById('btnStart').disabled = false;
             })
             .catch(err => {
                 console.error(err);
-                document.getElementById('loadStatus').innerText = "❌ Lỗi: Không tìm thấy file 'database.xlsx' trên GitHub!";
+                document.getElementById('loadStatus').style.color = "#e94560";
+                document.getElementById('loadStatus').innerText = "❌ Lỗi: Hãy kiểm tra xem file đã đặt đúng tên 'database.xlsx' chưa!";
             });
     };
 
+    // HÀM KÍCH HOẠT CAMERA QUÉT MÃ
     function startScanning() {
         const scannerUi = document.getElementById('scanner-ui');
         const readerDiv = document.getElementById('reader');
 
+        // Tạo mới trình quét mã vạch
         html5QrcodeScanner = new Html5Qrcode("reader");
+        
         html5QrcodeScanner.start(
-            { facingMode: "environment" }, 
-            { fps: 10, qrbox: { width: 250, height: 250 } },
+            { facingMode: { exact: "environment" } }, // ÉP ĐIỆN THOẠI CHỌN ĐÚNG CAMERA SAU CHÍNH
+            { 
+                fps: 15, // Tăng tốc độ quét bắt khung hình
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    // Tự động căn chỉnh khung quét hình vuông vừa vặn mọi màn hình điện thoại
+                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                    const edgeSize = Math.floor(minEdge * 0.7);
+                    return { width: edgeSize, height: edgeSize };
+                }
+            },
             (decodedText) => {
+                // Khi nhận diện thành công mã vạch, tự động tắt cam để tiết kiệm pin và chuyển sang hiển thị kết quả
                 stopScanning();
                 processAssetSearch(decodedText);
             },
-            (err) => {}
+            (errorMessage) => { /* Bỏ qua log quét trượt liên tục để tránh đơ bộ nhớ máy */ }
         )
         .then(() => {
             scannerUi.style.display = 'none';
             readerDiv.style.display = 'block';
         })
-        .catch(err => alert("Vui lòng cấp quyền camera!"));
+        .catch(err => {
+            console.error(err);
+            // Phương án dự phòng nếu điện thoại kén camera sau ép buộc hoặc chưa bật quyền
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, // Thử lại với chế độ tự lựa chọn camera sau mặc định
+                { fps: 15, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    stopScanning();
+                    processAssetSearch(decodedText);
+                },
+                (err) => {}
+            ).then(() => {
+                scannerUi.style.display = 'none';
+                readerDiv.style.display = 'block';
+            }).catch(e => {
+                alert("Lỗi phần cứng camera hoặc bạn chưa cấp quyền truy cập Máy ảnh cho trình duyệt web này!");
+            });
+        });
     }
 
+    // HÀM TẮT CAMERA
     function stopScanning() {
         if (html5QrcodeScanner) {
             html5QrcodeScanner.stop().then(() => {
                 document.getElementById('scanner-ui').style.display = 'flex';
                 document.getElementById('reader').style.display = 'none';
-            });
+            }).catch(err => console.error(err));
         }
     }
 
+    // KIỂM TRA MÃ NHẬP BẰNG TAY
     function checkManualAsset() {
         const code = document.getElementById('manualInput').value.trim();
-        if(code) processAssetSearch(code);
-        else alert('Vui lòng nhập mã tài sản!');
+        if(code) {
+            processAssetSearch(code);
+        } else {
+            alert('Vui lòng nhập mã tài sản cần tìm!');
+        }
     }
 
-    // HÀM TRA CỨU MÃ TÀI SẢN TRONG FILE EXCEL ĐÃ ĐỌC
+    // HÀM TRA CỨU DỮ LIỆU ĐỐI CHIẾU THÔNG TIN
     function processAssetSearch(maCanTim) {
         if(excelDatabase.length === 0) {
-            alert("Dữ liệu đang tải, vui lòng đợi vài giây!");
+            alert("Hệ thống đang nạp dữ liệu Excel, vui lòng đợi vài giây!");
             return;
         }
 
-        // Tìm dòng có cột "Số hiệu" hoặc "Ký hiệu" trùng với mã quét
+        // Dò mã tài sản trong toàn bộ các cột định danh của cả 2 loại sheet
         const found = excelDatabase.find(item => {
             let maTrongFile = item["Số hiệu"] || item["Ký hiệu"] || "";
             return String(maTrongFile).trim() === String(maCanTim).trim();
         });
 
         if (found) {
-            // Lấy thông tin linh hoạt theo tiêu đề các cột có trong các sheet của anh
-            let ten = found["Tên tài sản"] || found["TÊN CCDC"] || "Không rõ tên";
-            let phong = found["Phòng"] || "---";
-            let nguoi = found["Người QL"] || found["Người quản lý"] || "---";
-            let vitri = found["Vị trí"] || found["Chỗ đặt"] || "---";
+            // Lấy linh hoạt dữ liệu tùy thuộc vào tiêu đề từng dòng của sheet Chỉnh cho 3 phòng hay sheet CCDC
+            let tenMay = found["Tên tài sản"] || found["TÊN CCDC"] || "Không rõ tên";
+            let phongBan = found["Phòng"] || "---";
+            let nguoiPhuTrach = found["Người QL"] || found["Người quản lý"] || "---";
+            let viTriLapDat = found["Vị trí"] || found["Chỗ đặt"] || "---";
+            let modelMay = found["Model"] || found["Serial"] || "---";
 
-            alert(`🎉 TÌM THẤY TÀI SẢN (${found._sheet}):\n----------------------------------\n• Mã số: ${maCanTim}\n• Tên máy: ${ten}\n• Bộ phận: Phòng ${phong} (${nguoi})\n• Vị trí lắp đặt: ${vitri}`);
+            alert(`🎉 THÔNG TIN TÌM THẤY (${found._sheetName}):\n--------------------------------------------\n• Mã số TS: ${maCanTim}\n• Tên thiết bị: ${tenMay}\n• Đời máy/Serial: ${modelMay}\n• Phòng quản lý: Phòng ${phongBan} (${nguoiPhuTrach})\n• Vị trí lắp đặt: ${viTriLapDat}`);
         } else {
-            alert(`❌ Không tìm thấy thông tin cho mã này: ${maCanTim}`);
+            alert(`❌ Không tìm thấy thông tin khớp với mã tài sản: ${maCanTim}`);
         }
     }
 </script>
