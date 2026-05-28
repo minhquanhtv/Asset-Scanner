@@ -4,13 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Scanner Pro</title>
-    <!-- Nhúng thư viện quét mã QR/Barcode uy tín và nhẹ -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <!-- Nhúng thư viện icon nếu cần -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        /* Giao diện Dark Mode cao cấp giống thiết kế trong ảnh */
+        /* Giao diện chuẩn Dark Mode điện thoại giống hệt ảnh thiết kế */
         body {
             margin: 0;
             padding: 0;
@@ -26,9 +24,7 @@
             max-width: 480px;
             padding: 20px;
             box-sizing: border-box;
-            position: relative;
         }
-        /* Thanh tiêu đề trên cùng */
         .header {
             display: flex;
             justify-content: space-between;
@@ -51,11 +47,7 @@
             border-radius: 20px;
             font-size: 13px;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
         }
-        /* Vùng Camera */
         .camera-box {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -63,26 +55,16 @@
             padding: 40px 20px;
             text-align: center;
             margin-bottom: 20px;
-            position: relative;
-            overflow: hidden;
             min-height: 250px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            position: relative;
         }
-        .camera-icon {
-            font-size: 48px;
-            color: #8a8d9f;
-            margin-bottom: 15px;
-        }
-        .camera-hint {
-            color: #8a8d9f;
-            font-size: 14px;
-            margin-bottom: 20px;
-            line-height: 1.4;
-        }
-        /* Nút Mở Camera hiệu ứng Gradient */
+        .camera-icon { font-size: 48px; color: #8a8d9f; margin-bottom: 15px; }
+        .camera-hint { color: #8a8d9f; font-size: 14px; margin-bottom: 20px; }
+        
         .btn-gradient {
             background: linear-gradient(135deg, #6366f1 0%, #d946ef 100%);
             border: none;
@@ -93,139 +75,87 @@
             border-radius: 30px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-            transition: transform 0.2s;
         }
-        .btn-gradient:active {
-            transform: scale(0.95);
-        }
-        /* Khung tìm kiếm bằng tay */
-        .search-container {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
+        .search-container { display: flex; gap: 10px; margin-bottom: 20px; }
         .search-input {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 14px;
-            padding: 14px 16px;
-            color: white;
-            font-size: 15px;
-            outline: none;
-        }
-        .search-input::placeholder {
-            color: #565973;
+            flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px; padding: 14px 16px; color: white; font-size: 15px; outline: none;
         }
         .btn-search {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            width: 50px;
-            border-radius: 14px;
-            cursor: pointer;
-            font-size: 16px;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white; width: 50px; border-radius: 14px; cursor: pointer;
         }
-        /* Hộp thông báo lỗi (Error Alert giống ảnh mẫu) */
         .error-box {
-            background: rgba(233, 69, 96, 0.1);
-            border: 1px solid #e94560;
-            border-radius: 16px;
-            padding: 16px;
-            margin-top: 20px;
-            display: none; /* Ẩn mặc định, hiện khi lỗi */
+            background: rgba(233, 69, 96, 0.1); border: 1px solid #e94560;
+            border-radius: 16px; padding: 16px; margin-top: 20px; display: none;
         }
-        .error-content {
-            color: #ff6b81;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        /* Vùng hiển thị video khi camera chạy */
-        #reader {
-            width: 100%;
-            background: black;
-            border-radius: 16px;
-            display: none;
-        }
+        #reader { width: 100%; background: #000; border-radius: 16px; display: none; overflow: hidden; }
+        
+        /* Loading hiệu ứng xoay tròn */
+        .loading { display: none; color: #6366f1; font-size: 24px; margin: 10px 0; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <!-- Header -->
     <div class="header">
         <div>
-            <h1>Asset Scanner Pro_NgQUAN</h1>
-            <div style="font-size: 11px; color: #6e7191; margin-top: 4px;">Hệ thống Kiểm kê Tài sản Cơ quan_TTPH</div>
+            <h1>Asset Scanner Pro</h1>
+            <div style="font-size: 11px; color: #6e7191; margin-top: 4px;">Hệ thống Kiểm kê Tài sản Cơ quan</div>
         </div>
         <button class="btn-dashboard"><i class="fa-solid fa-border-all"></i> Dashboard</button>
     </div>
 
-    <!-- Vùng Quét Camera -->
-    <div class="camera-box" id="cameraBox">
+    <div class="camera-box">
         <div id="scanner-ui">
             <div class="camera-icon">📷</div>
             <div class="camera-hint">Nhấn để mở camera và bắt đầu quét mã vạch tài sản</div>
             <button class="btn-gradient" onclick="startScanning()">Mở Camera</button>
         </div>
-        <!-- Thẻ chứa luồng Video quét mã -->
         <div id="reader"></div>
+        <div class="loading" id="loadingIcon"><i class="fas fa-spinner fa-spin"></i> Đang kiểm tra hệ thống...</div>
     </div>
 
-    <!-- Ô nhập tay -->
     <div class="search-container">
         <input type="text" class="search-input" id="manualInput" placeholder="Hoặc nhập mã tài sản bằng tay...">
         <button class="btn-search" onclick="checkManualAsset()"><i class="fa-solid fa-magnifying-glass"></i></button>
     </div>
 
-    <!-- Hộp thông báo lỗi phân quyền giống ảnh mẫu -->
     <div class="error-box" id="errorBox">
-        <div class="error-content">
-            <strong>❌ Không thể mở camera:</strong> <span id="errorText">The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.</span>
+        <div style="color: #ff6b81; font-size: 14px;">
+            <strong>❌ Thông báo:</strong> <span id="errorText"></span>
         </div>
     </div>
 </div>
 
 <script>
     let html5QrcodeScanner;
+    // ĐƯỜNG DẪN WEB APP APPS SCRIPT CỦA ANH QUÂN
+    const GOOGLE_SHEET_API = "https://script.google.com/macros/s/AKfycby8iIl1OQfyYjs5B-y2ucYjJFb9WV7exEN1E2v04NUwPZZougyMbpxfqNCc8gdD0ur6nA/exec";
 
     function startScanning() {
         const errorBox = document.getElementById('errorBox');
         const scannerUi = document.getElementById('scanner-ui');
         const readerDiv = document.getElementById('reader');
-        
-        errorBox.style.display = 'none'; // Ẩn thông báo lỗi trước đó
+        errorBox.style.display = 'none';
 
-        // Khởi tạo trình quét mã
         html5QrcodeScanner = new Html5Qrcode("reader");
-        
-        // Cấu hình camera sau (environment)
         html5QrcodeScanner.start(
             { facingMode: "environment" }, 
-            {
-                fps: 10,    // Số khung hình trên giây
-                qrbox: { width: 250, height: 250 } // Vùng bắt mã
-            },
-            // Hàm xử lý khi quét THÀNH CÔNG
+            { fps: 10, qrbox: { width: 250, height: 250 } },
             (decodedText, decodedResult) => {
-                alert(`Tìm thấy mã tài sản: ${decodedText}`);
-                // Ở đây bạn có thể viết lệnh gửi mã này lên Google Sheets hoặc xử lý dữ liệu
+                // Tự động tắt camera khi tìm thấy mã để tiết kiệm pin và tránh quét trùng
                 stopScanning();
+                processAssetSearch(decodedText);
             },
-            // Hàm xử lý khi quét LỖI (quét trượt, chưa bắt được mã)
-            (errorMessage) => {
-                // Bỏ qua lỗi quét trượt liên tục để camera giữ trải nghiệm mượt mà
-            }
+            (errorMessage) => { /* Bỏ qua log lỗi quét trượt */ }
         )
         .then(() => {
-            // Khi camera mở thành công
             scannerUi.style.display = 'none';
-            readerDiv.style.style.display = 'block';
+            readerDiv.style.display = 'block';
         })
         .catch((err) => {
-            // Khi bị từ chối quyền truy cập Camera (giống trường hợp trong ảnh)
-            console.error(err);
-            document.getElementById('errorText').innerText = err;
+            document.getElementById('errorText').innerText = "Vui lòng cấp quyền Camera cho trình duyệt hoặc truy cập bằng đường dẫn HTTPS!";
             errorBox.style.display = 'block';
         });
     }
@@ -235,17 +165,49 @@
             html5QrcodeScanner.stop().then(() => {
                 document.getElementById('scanner-ui').style.display = 'flex';
                 document.getElementById('reader').style.display = 'none';
-            });
+            }).catch(err => console.error(err));
         }
     }
 
     function checkManualAsset() {
-        const code = document.getElementById('manualInput').value;
+        const code = document.getElementById('manualInput').value.trim();
         if(code) {
-            alert(`Đang tìm kiếm tài sản có mã: ${code}`);
+            processAssetSearch(code);
         } else {
             alert('Vui lòng nhập mã tài sản!');
         }
+    }
+
+    // Gửi tín hiệu tìm kiếm trực tiếp lên link macro Google Apps Script
+    function processAssetSearch(maCanTim) {
+        const loadingIcon = document.getElementById('loadingIcon');
+        loadingIcon.style.display = 'block';
+
+        const requestUrl = `${GOOGLE_SHEET_API}?ma=${encodeURIComponent(maCanTim)}`;
+
+        fetch(requestUrl)
+            .then(response => response.json())
+            .then(res => {
+                loadingIcon.style.display = 'none';
+                if (res.success) {
+                    const asset = res.data;
+                    
+                    // Lấy động dữ liệu từ các cột dựa theo file Excel tổng của anh
+                    // Tự động kiểm tra cột viết hoa, viết thường hoặc viết có dấu
+                    const tenThietBi = asset.tentaisan || asset["Tên tài sản"] || asset["TÊN TÀI SẢN"] || "Không rõ tên";
+                    const viTri = asset.vitri || asset["Vị trí"] || asset["VỊ TRÍ"] || "Chưa xác định";
+                    const model = asset.model || asset["Model"] || asset["Ký hiệu / Quy cách"] || "---";
+
+                    alert(`🎉 THÔNG TIN TÀI SẢN TÌM THẤY:\n----------------------------------\n• Mã TS: ${maCanTim}\n• Tên thiết bị: ${tenThietBi}\n• Kiểu dáng/Model: ${model}\n• Vị trí hiện tại: ${viTri}`);
+                } else {
+                    alert(`❌ Kết quả: ${res.message}`);
+                }
+            })
+            .catch(err => {
+                loadingIcon.style.display = 'none';
+                console.error(err);
+                alert("Lỗi đường truyền hoặc chưa phân quyền 'Bất kỳ ai' (Anyone) trên Apps Script!");
+            });
     }
 </script>
 
