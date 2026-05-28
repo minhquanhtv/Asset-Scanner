@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        /* Giao diện chuẩn Dark Mode điện thoại giống hệt ảnh thiết kế */
+        /* Giao diện chuẩn Dark Mode điện thoại chuyên nghiệp */
         body {
             margin: 0;
             padding: 0;
@@ -90,9 +90,6 @@
             border-radius: 16px; padding: 16px; margin-top: 20px; display: none;
         }
         #reader { width: 100%; background: #000; border-radius: 16px; display: none; overflow: hidden; }
-        
-        /* Loading hiệu ứng xoay tròn */
-        .loading { display: none; color: #6366f1; font-size: 24px; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -101,7 +98,7 @@
     <div class="header">
         <div>
             <h1>Asset Scanner Pro</h1>
-            <div style="font-size: 11px; color: #6e7191; margin-top: 4px;">Hệ thống Kiểm kê Tài sản Cơ quan</div>
+            <div style="font-size: 11px; color: #6e7191; margin-top: 4px;">Hệ thống Kiểm kê Tài sản Cơ quanTTPH</div>
         </div>
         <button class="btn-dashboard"><i class="fa-solid fa-border-all"></i> Dashboard</button>
     </div>
@@ -113,7 +110,6 @@
             <button class="btn-gradient" onclick="startScanning()">Mở Camera</button>
         </div>
         <div id="reader"></div>
-        <div class="loading" id="loadingIcon"><i class="fas fa-spinner fa-spin"></i> Đang kiểm tra hệ thống...</div>
     </div>
 
     <div class="search-container">
@@ -130,8 +126,25 @@
 
 <script>
     let html5QrcodeScanner;
-    // ĐƯỜNG DẪN WEB APP APPS SCRIPT CỦA ANH QUÂN
-    const GOOGLE_SHEET_API = "https://script.google.com/macros/s/AKfycby8iIl1OQfyYjs5B-y2ucYjJFb9WV7exEN1E2v04NUwPZZougyMbpxfqNCc8gdD0ur6nA/exec";
+
+    // === ĐÂY LÀ NƠI CHỨA DỮ LIỆU TỪ FILE EXCEL CỦA ANH ===
+    // Em đã gộp chung cả 2 Sheet (Cột E của Chỉnh 3 phòng và Cột D của CCDC) vào đây.
+    // Anh có thể tự nhập thêm các dòng thiết bị khác theo đúng cấu trúc bên dưới.
+    const DATA_TAI_SAN = [
+        // Dữ liệu trích từ sheet: Chỉnh cho 3 phòng (Mã tài sản nằm ở cột E)
+        { ma: "3010101223001", ten: "Máy chủ Dell (Kèm đĩa CD Windows Server Standard 2019), Model:PowerEdge R350", nuoc: "Malaysia", phòng: "KT", nguoi_ql: "Xuân", vi_tri: "A2-R6: DDR2" },
+        { ma: "302099902894004", ten: "Bàn trộn tín hiệu âm thanh số 24 kênh - Allen & Heath, Model:Qu-24", nuoc: "Trung Quốc", phòng: "PH", nguoi_ql: "Lam", vi_tri: "Máy VP trong lầu 1 PH mới" },
+        { ma: "302099902935001", ten: "Bàn trộn hình Sony 24 ngõ vào, chuẩn 4K, 2ME (Khung chính Model: XVS-G1)", nuoc: "Nhật", phòng: "KT", nguoi_ql: "Thanh", vi_tri: "F1: sw chính" },
+        { ma: "302099907300003", ten: "Máy quay phim vác vai Sony, Model:PMW-320, No:103447", nuoc: "Nhật", phòng: "KT", nguoi_ql: "Xuân", vi_tri: "A2-MC - cam 1" },
+        { ma: "302099902920001002", ten: "Menu panel Sony, Model:ICP-6511, No:10852", nuoc: "Nhật", phòng: "KT", nguoi_ql: "Thanh", vi_tri: "F1: sw chính" },
+        
+        // Dữ liệu trích từ sheet: CCDC (Mã tài sản nằm ở cột D)
+        { ma: "3010102337034", ten: "Máy tính desktop Dell, Serial: GX3372S", nuoc: "Malaysia", phòng: "PH", nguoi_ql: "Khanh", vi_tri: "Chép file HTVC cũ" },
+        { ma: "3010102361034", ten: "Máy tính desktop Dell, Serial: CX3VD2S", nuoc: "Malaysia", phòng: "KT", nguoi_ql: "Hà", vi_tri: "Trên tủ hồ sơ" },
+        { ma: "H90111090008", ten: "Màn hình tivi LED 32\" KD-32W830K, Serial: 8624785", nuoc: "Việt Nam", phòng: "KT", nguoi_ql: "Quân", vi_tri: "Phòng làm việc" },
+        { ma: "H90111100001", ten: "Máy Chromakey Ultimatte 12 HD, Serial: 10904474", nuoc: "Singapore", phòng: "KT", nguoi_ql: "Quân", vi_tri: "RACK 7 A2" },
+        { ma: "H90111840001", ten: "Bộ thu micro không dây Shure QLXD4, Serial: 3CJ27078059", nuoc: "Mỹ/China", phòng: "KT", nguoi_ql: "Xuân", vi_tri: "A2 control, w17-18-19-20" }
+    ];
 
     function startScanning() {
         const errorBox = document.getElementById('errorBox');
@@ -144,18 +157,17 @@
             { facingMode: "environment" }, 
             { fps: 10, qrbox: { width: 250, height: 250 } },
             (decodedText, decodedResult) => {
-                // Tự động tắt camera khi tìm thấy mã để tiết kiệm pin và tránh quét trùng
                 stopScanning();
                 processAssetSearch(decodedText);
             },
-            (errorMessage) => { /* Bỏ qua log lỗi quét trượt */ }
+            (errorMessage) => { }
         )
         .then(() => {
             scannerUi.style.display = 'none';
             readerDiv.style.display = 'block';
         })
         .catch((err) => {
-            document.getElementById('errorText').innerText = "Vui lòng cấp quyền Camera cho trình duyệt hoặc truy cập bằng đường dẫn HTTPS!";
+            document.getElementById('errorText').innerText = "Vui lòng cấp quyền mở Camera trên trình duyệt điện thoại của bạn!";
             errorBox.style.display = 'block';
         });
     }
@@ -178,36 +190,17 @@
         }
     }
 
-    // Gửi tín hiệu tìm kiếm trực tiếp lên link macro Google Apps Script
+    // Hàm tra cứu trực tiếp dữ liệu cứng được khai báo ở trên
     function processAssetSearch(maCanTim) {
-        const loadingIcon = document.getElementById('loadingIcon');
-        loadingIcon.style.display = 'block';
+        // Dò tìm chính xác mã tài sản (bỏ khoảng trắng thừa nếu có)
+        const asset = DATA_TAI_SAN.find(item => String(item.ma).trim() === String(maCanTim).trim());
 
-        const requestUrl = `${GOOGLE_SHEET_API}?ma=${encodeURIComponent(maCanTim)}`;
-
-        fetch(requestUrl)
-            .then(response => response.json())
-            .then(res => {
-                loadingIcon.style.display = 'none';
-                if (res.success) {
-                    const asset = res.data;
-                    
-                    // Lấy động dữ liệu từ các cột dựa theo file Excel tổng của anh
-                    // Tự động kiểm tra cột viết hoa, viết thường hoặc viết có dấu
-                    const tenThietBi = asset.tentaisan || asset["Tên tài sản"] || asset["TÊN TÀI SẢN"] || "Không rõ tên";
-                    const viTri = asset.vitri || asset["Vị trí"] || asset["VỊ TRÍ"] || "Chưa xác định";
-                    const model = asset.model || asset["Model"] || asset["Ký hiệu / Quy cách"] || "---";
-
-                    alert(`🎉 THÔNG TIN TÀI SẢN TÌM THẤY:\n----------------------------------\n• Mã TS: ${maCanTim}\n• Tên thiết bị: ${tenThietBi}\n• Kiểu dáng/Model: ${model}\n• Vị trí hiện tại: ${viTri}`);
-                } else {
-                    alert(`❌ Kết quả: ${res.message}`);
-                }
-            })
-            .catch(err => {
-                loadingIcon.style.display = 'none';
-                console.error(err);
-                alert("Lỗi đường truyền hoặc chưa phân quyền 'Bất kỳ ai' (Anyone) trên Apps Script!");
-            });
+        if (asset) {
+            // Hiển thị hộp thoại chi tiết khi tìm thấy thiết bị
+            alert(`🎉 THÔNG TIN TÀI SẢN TÌM THẤY:\n----------------------------------\n• Mã số: ${asset.ma}\n• Tên tài sản: ${asset.ten}\n• Xuất xứ: ${asset.nuoc}\n• Bộ phận quản lý: Phòng ${asset.phòng} (${asset.nguoi_ql})\n• Vị trí lắp đặt: ${asset.vi_tri}`);
+        } else {
+            alert(`❌ Không tìm thấy thông tin cho mã tài sản này: ${maCanTim}`);
+        }
     }
 </script>
 
